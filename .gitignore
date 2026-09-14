@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.egg-info/
+
+config.yaml
+scoring.yaml
+
+samples/
+*.eml
+*.result.json
+enrich-cache.db

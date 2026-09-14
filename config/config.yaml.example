@@ -1,0 +1,83 @@
+# config.yaml
+#
+# phish-triage の設定。/etc/phish/config.yaml に配置する。
+# 環境変数 PHISH_<KEY> が設定されていれば、そちらが優先される。
+# 例: mta.authserv_id -> PHISH_MTA_AUTHSERV_ID
+
+# ---- 受信MTA ----
+mta:
+  # 自前の受信MTAが Authentication-Results に付与する AuthservID。
+  # 通常は受信サーバーのホスト名（Postfix の myhostname）。
+  #
+  # これを設定しないと、転送してきたメールサービスの検証結果を
+  # 元メールのものと誤認し、常に spf=pass となって判定が壊れる。
+  # エラーにならず検出力だけが失われるため、必ず設定すること。
+  authserv_id: mail.example.com
+
+# ---- 検体の保管 ----
+spool:
+  path: /var/spool/phish
+
+# ---- 通知 ----
+notify:
+  # true の間は通知を送らず、記録だけ行う。
+  # 運用開始から最低2週間はこのままにして、誤検知の傾向を掴むこと
+  shadow_mode: true
+
+  # 判定結果の送信先。通知の分岐やメール送信は受け取った側で行う。
+  # n8n / Zapier / 自前スクリプトなど、何でもよい
+  webhook: http://127.0.0.1:5678/webhook/phish-result
+
+  # レポート内で案内する問い合わせ先
+  contact_name: 情報システム担当
+
+# ---- 脅威インテリ（OpenCTI）----
+# 未設定でも動作する。その場合 U01/A01/H09/H15 は検出されない
+opencti:
+  # 接続情報は直接指定するか、既存の .env から読むかを選べる
+  url: ""
+  token: ""
+  # env_file: /path/to/.env    # OPENCTI_URL / OPENCTI_TOKEN を読む
+
+  # スコアの足切り。
+  # 多くのフィードは既定値のままスコアを付けるため、
+  # 低い閾値にすると正規ドメインまで悪性判定してしまう。
+  # 導入時は自組織や著名サービスのドメインを照会し、
+  # 誤ヒットしない値を実測して決めること
+  min_score: 70
+
+  cache_db: /var/spool/phish/enrich-cache.db
+  cache_ttl_days: 7
+
+  # WHOIS による新規ドメイン判定。
+  # 外部へ問い合わせが発生し、照会したドメインが
+  # WHOIS サーバー運用者に見えるため既定では無効
+  enable_whois: false
+
+# ---- LLM（本文の文脈判定）----
+# 未設定でも動作する。その場合 C01〜C05 は検出されない
+llm:
+  enabled: true
+  url: http://127.0.0.1:11434
+  # 思考トークンを出すモデルは、思考が応答に混ざって
+  # JSON パースができないため使えない
+  model: gemma3:4b
+  timeout: 60
+  max_body_chars: 4000
+
+# ---- キャッシュ ----
+cache:
+  # tldextract のキャッシュ置き場。
+  # systemd の ProtectHome=read-only 下では ~/.cache に書けないため、
+  # 書き込み可能な場所を指定し、ReadWritePaths にも追加すること
+  tldextract: /var/cache/phish-tldextract
+
+# ---- ルール ----
+rules:
+  path: /opt/phish/rules/scoring.yaml
+
+# ---- pull（受信サーバーからの取得）----
+pull:
+  ssh_target: phish@mail.example.com
+  ssh_key: /home/USER/.ssh/phish_pull
+  api_url: http://127.0.0.1:8081/ingest/mail
